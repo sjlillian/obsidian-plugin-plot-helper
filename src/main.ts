@@ -1,5 +1,5 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin, requestUrl} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import {App, Editor, FuzzySuggestModal, MarkdownView, Modal, Notice, Plugin, requestUrl, TFile, TFolder} from 'obsidian';
+import {DEFAULT_SETTINGS, MyPluginSettings, StorySettingTab} from "./settings";
 
 // Remember to rename these classes and interfaces!
 
@@ -30,7 +30,7 @@ export default class Author extends Plugin {
 		});
 		
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new StorySettingTab(this.app, this));
 
 		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
@@ -47,8 +47,29 @@ export default class Author extends Plugin {
 	}
 
 	async runArchitect(editor: Editor) {
-		const text = editor.getSelection().length > 0
-			? editor.getSelection() : editor.getValue();
+		const selection = editor.getSelection();
+
+		if (selection.length > 0) {
+			// Option 1: Just process the highlighted text
+			await this.processNotes(selection);
+		} else {
+			// Option 2: Open the Folder Picker
+			new FolderSuggestionModal(this.app, async (folder) => {
+					const files = folder.children.filter(file => 
+						file instanceof TFile && file.extension === 'md'
+					) as TFile[];
+
+					if (files.length === 0) {
+						new Notice("No markdown files found in that folder.");
+						return;
+					}
+
+					const contents = await Promise.all(files.map(file => this.app.vault.read(file)));
+					const combinedFiles = contents.join("\n\n---\n\n");
+
+					await this.processNotes(combinedFiles);
+				}).open();
+			};
 
 		new Notice("Outline started");
 
@@ -66,13 +87,25 @@ export default class Author extends Plugin {
 		}
 	}
 
+	async processNotes(text: string) {
+		new Notice("Architect is building your story...");
+		try {
+			const result = await this.askModel(this.settings.outlinePrompt.replace("{{brain_dump}}", text));
+			const fileName = `Story Outline - ${Date.now()}.md`;
+			await this.app.vault.create(fileName, result);
+			new Notice("Outline created!");
+		} catch (e) {
+			new Notice("AI Error!");
+		}
+	}
+
 	async askModel(prompt: string) {
 		const response = await requestUrl({
 			url: "http://localhost:11434/api/generate",
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				model: "llama3", // Make sure this matches your downloaded model
+				model: this.settings.model, // Make sure this matches your downloaded model
 				prompt: prompt,
 				stream: false 
 			})
@@ -90,18 +123,24 @@ export default class Author extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
+export class FolderSuggestionModal extends FuzzySuggestModal<TFolder> {
+	onChoose: (folder: TFolder) => void;
+
+	constructor(app: App, onChoose: (folder: TFolder) => void) {
 		super(app);
+		this.onChoose = onChoose;
 	}
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
+	getItems(): TFolder[] {
+		return this.app.vault.getAllLoadedFiles()
+			.filter(file => file instanceof TFolder) as TFolder[];
 	}
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+	getItemText(folder: TFolder): string {
+		return folder.path;
+	}
+
+	onChooseItem(folder: TFolder, evt: MouseEvent | KeyboardEvent) {
+		this.onChoose(folder);
 	}
 }

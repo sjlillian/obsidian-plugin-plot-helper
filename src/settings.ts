@@ -1,15 +1,20 @@
-import {App, PluginSettingTab, Setting} from "obsidian";
+import {App, PluginSettingTab, Notice, Setting} from "obsidian";
 import Author from "./main";
+//@ts-ignore
+import defaultPromptText from 'inline:./prompts/architect-prompt.md';
 
 export interface MyPluginSettings {
-	mySetting: string;
+	outlinePrompt: string;
+	model: string;
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+	outlinePrompt: defaultPromptText,
+	model: 'llama3'
 }
 
-export class SampleSettingTab extends PluginSettingTab {
+
+export class StorySettingTab extends PluginSettingTab {
 	plugin: Author;
 
 	constructor(app: App, plugin: Author) {
@@ -19,18 +24,40 @@ export class SampleSettingTab extends PluginSettingTab {
 
 	display(): void {
 		const {containerEl} = this;
-
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc('It\'s a secret')
+			.setName('Ollama Model')
+			.setDesc('Which model to use (e.g., mistral, llama3)')
 			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+				.setValue(this.plugin.settings.model)
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.model = value;
 					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Architect Prompt')
+			.setDesc('The instructions for the AI. Use {{brain_dump}} as a placeholder.')
+			.addTextArea(text => text
+				.setPlaceholder('Enter your prompt here...')
+				.setValue(this.plugin.settings.outlinePrompt)
+				.onChange(async (value) => {
+					this.plugin.settings.outlinePrompt = value;
+					await this.plugin.saveSettings();
+				})
+				.inputEl.rows = 10); // Makes the box bigger
+
+		new Setting(containerEl)
+			.setName('Reset to Default')
+			.setDesc('Revert the Architect prompt to the original file version.')
+			.addButton(cb => cb
+				.setButtonText('Reset')
+				.onClick(async () => {
+					this.plugin.settings.outlinePrompt = defaultPromptText;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh the UI to show the reset text
+					new Notice("Prompt reset to default!");
 				}));
 	}
 }

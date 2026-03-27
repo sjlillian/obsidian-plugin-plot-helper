@@ -1,4 +1,5 @@
 import esbuild from "esbuild";
+import inlineImportPlugin from 'esbuild-plugin-inline-import';
 import process from "process";
 import { builtinModules } from 'node:module';
 
@@ -12,6 +13,9 @@ if you want to view the source, please visit the github repository of this plugi
 const prod = (process.argv[2] === "production");
 
 const context = await esbuild.context({
+	plugins: [
+        inlineImportPlugin()
+    ],
 	banner: {
 		js: banner,
 	},
