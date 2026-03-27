@@ -1,7 +1,7 @@
 import {App, PluginSettingTab, Notice, Setting} from "obsidian";
 import Author from "./main";
 //@ts-ignore
-import defaultPromptText from 'inline:./prompts/architect-prompt.md';
+import defaultPromptText from 'inline:./prompts/outline-prompt.md';
 
 export interface MyPluginSettings {
 	outlinePrompt: string;
@@ -27,7 +27,7 @@ export class StorySettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Ollama Model')
+			.setName('Model')
 			.setDesc('Which model to use (e.g., mistral, llama3)')
 			.addText(text => text
 				.setValue(this.plugin.settings.model)
@@ -37,7 +37,7 @@ export class StorySettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Architect Prompt')
+			.setName('Outline Prompt')
 			.setDesc('The instructions for the AI. Use {{brain_dump}} as a placeholder.')
 			.addTextArea(text => text
 				.setPlaceholder('Enter your prompt here...')
@@ -50,11 +50,12 @@ export class StorySettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Reset to Default')
-			.setDesc('Revert the Architect prompt to the original file version.')
+			.setDesc('Revert settings to the original file version.')
 			.addButton(cb => cb
 				.setButtonText('Reset')
 				.onClick(async () => {
 					this.plugin.settings.outlinePrompt = defaultPromptText;
+					this.plugin.settings.model = DEFAULT_SETTINGS.model;
 					await this.plugin.saveSettings();
 					this.display(); // Refresh the UI to show the reset text
 					new Notice("Prompt reset to default!");

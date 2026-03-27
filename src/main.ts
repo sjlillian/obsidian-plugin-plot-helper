@@ -5,20 +5,17 @@ import {DEFAULT_SETTINGS, MyPluginSettings, StorySettingTab} from "./settings";
 
 export default class Author extends Plugin {
 	settings: MyPluginSettings;
+	aiStatus: HTMLElement;
+	outlinePrompt: string;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('book-marked', 'Author', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-
-		/* This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-		*/
+		this.addRibbonIcon('book-marked', 'Author', () => {});
+		this.aiStatus = this.addStatusBarItem();
+		this.aiStatus.setText('Ready');
+		this.addSettingTab(new StorySettingTab(this.app, this));
+		this.outlinePrompt = this.settings.outlinePrompt;	
 
 		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
@@ -28,9 +25,6 @@ export default class Author extends Plugin {
 				await this.runArchitect(editor);
 			}
 		});
-		
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new StorySettingTab(this.app, this));
 
 		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
@@ -48,7 +42,7 @@ export default class Author extends Plugin {
 
 	async runArchitect(editor: Editor) {
 		const selection = editor.getSelection();
-
+		this.aiStatus.addClass('is-loading');
 		if (selection.length > 0) {
 			// Option 1: Just process the highlighted text
 			await this.processNotes(selection);
@@ -61,6 +55,8 @@ export default class Author extends Plugin {
 
 					if (files.length === 0) {
 						new Notice("No markdown files found in that folder.");
+						this.aiStatus.setText('No markdown files found in that folder.');
+						setTimeout(() => this.aiStatus.setText(''), 5000);
 						return;
 					}
 
@@ -70,47 +66,38 @@ export default class Author extends Plugin {
 					await this.processNotes(combinedFiles);
 				}).open();
 			};
+	}
 
-		new Notice("Outline started");
-
-		const prompt = 'Say hello and who you are';
+	async processNotes(text: string) {
 		try {
-			
-			const result = await this.askModel(prompt);
-
-			await this.app.vault.create(`Story Outline ${Date.now()}.md`, result);
-			new Notice(`Outline created`);
-
-		} catch (error) {
-			new Notice('This is an error.')
+			const result = await this.askModel(this.outlinePrompt.replace("{{brain_dump}}", text));
+			const fileName = `Story Outline - ${new Date().toLocaleDateString()}.md`;
+			await this.app.vault.create(fileName, result);
+			this.aiStatus.setText('Outline created');
+			this.aiStatus.removeClass('is-loading');
+			setTimeout(() => this.aiStatus.setText('Ready'), 5000);
+		}  catch (error) {
+			new Notice('AI Error occurred. Check console for details.');
+			this.aiStatus.setText('AI Error');
+			this.aiStatus.removeClass('is-loading');
+			setTimeout(() => this.aiStatus.setText('Ready'), 5000);
 			console.error(error);
 		}
 	}
 
-	async processNotes(text: string) {
-		new Notice("Architect is building your story...");
-		try {
-			const result = await this.askModel(this.settings.outlinePrompt.replace("{{brain_dump}}", text));
-			const fileName = `Story Outline - ${Date.now()}.md`;
-			await this.app.vault.create(fileName, result);
-			new Notice("Outline created!");
-		} catch (e) {
-			new Notice("AI Error!");
-		}
-	}
-
 	async askModel(prompt: string) {
+		this.aiStatus.setText('Asking...');
 		const response = await requestUrl({
 			url: "http://localhost:11434/api/generate",
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				model: this.settings.model, // Make sure this matches your downloaded model
+				model: this.settings.model,
 				prompt: prompt,
 				stream: false 
 			})
 		});
-
+		this.aiStatus.setText('Thinking...');
 		return response.json.response;
 	}
 
