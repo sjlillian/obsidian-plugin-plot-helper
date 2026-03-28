@@ -7,3 +7,25 @@
     50% { opacity: 1; }
     100% { opacity: 0.5; }
 }
+
+.plot-hole-highlight {
+    background-color: rgba(255, 0, 0, 0.3); /* Transparent Red */
+    border-bottom: 2px wavy red;
+    cursor: help;
+}
+
+/* Optional: Show a tooltip when hovering over the highlight */
+.plot-hole-highlight:after {
+    content: "Potential Inconsistency";
+    display: none;
+    position: absolute;
+    background: black;
+    color: white;
+    padding: 4px;
+    font-size: 0.8em;
+    border-radius: 4px;
+}
+
+.plot-hole-highlight:hover:after {
+    display: block;
+}

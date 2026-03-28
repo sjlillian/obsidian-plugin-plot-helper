@@ -3,12 +3,12 @@ import Author from "./main";
 //@ts-ignore
 import defaultPromptText from 'inline:./prompts/outline-prompt.md';
 
-export interface MyPluginSettings {
+export interface PluginSettings {
 	outlinePrompt: string;
 	model: string;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
+export const DEFAULT_SETTINGS: PluginSettings = {
 	outlinePrompt: defaultPromptText,
 	model: 'llama3'
 }
